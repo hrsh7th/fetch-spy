@@ -100,7 +100,7 @@ const matchers = {
   },
   method(method: string) {
     return (_: FetchSpyObject, request: Request) => {
-      return request.method === method;
+      return request.method.toLowerCase() === method.toLowerCase();
     }
   },
   origin(origin: string) {
