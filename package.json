@@ -1,0 +1,51 @@
+{
+  "name": "fetch-spy",
+  "version": "1.0.0",
+  "description": "Spy fetch request in tests.",
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "typings": "./dist/dts/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/dts/index.d.ts"
+    },
+    "./mask": {
+      "import": "./dist/esm/mask.js",
+      "require": "./dist/cjs/mask.js",
+      "types": "./dist/dts/mask.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "vitest --run",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build:cjs && npm run build:esm && npm run build:dts",
+    "build:dts": "tsc --project ./tsconfig.build.json --outDir ./dist/dts --sourceMap --emitDeclarationOnly",
+    "build:cjs": "tsc --project ./tsconfig.build.json --outDir ./dist/cjs --sourceMap --module commonjs --moduleResolution node",
+    "build:esm": "tsc --project ./tsconfig.build.json --outDir ./dist/esm --sourceMap --module nodenext",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "author": "hrsh7th",
+  "homepage": "https://github.com/hrsh7th/fetch-spy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hrsh7th/fetch-spy.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mock",
+    "api"
+  ],
+  "devDependencies": {
+    "typescript": "^5.3.2",
+    "vitest": "^0.34.6"
+  },
+  "dependencies": {
+    "escape-string-regexp": "^5.0.0"
+  }
+}
