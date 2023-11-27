@@ -28,6 +28,11 @@ type MatcherConfig = {
 };
 
 /**
+ * Symbol for spy.
+ */
+const FetchSpySymbol = Symbol('FetchSpy');
+
+/**
  * Global state.
  */
 const state = {
@@ -37,8 +42,11 @@ const state = {
 /**
  * patching globalThis.fetch to spy fetch request.
  */
-{
+function patch() {
   const pureFetch = globalThis.fetch;
+  if ((pureFetch as any)[FetchSpySymbol]) {
+    return;
+  }
   globalThis.fetch = async <T extends Parameters<typeof pureFetch>>(...args: T) => {
     const request = await getRequestDetails(...args);
     for (const spy of state.spies) {
@@ -51,6 +59,7 @@ const state = {
     }
     return pureFetch.call(globalThis, ...args);
   };
+  (globalThis.fetch as any)[FetchSpySymbol] = pureFetch;
 }
 
 /**
@@ -58,12 +67,16 @@ const state = {
  */
 export function reset() {
   state.spies = [];
+  if ((globalThis.fetch as any)[FetchSpySymbol]) {
+    globalThis.fetch = (globalThis.fetch as any)[FetchSpySymbol];
+  }
 }
 
 /**
  * Spy fetch request.
  */
 export function spy(matcherConfig: MatcherConfig, response?: MockedResponse | ((spy: FetchSpyObject, request: RequestDetails) => Promise<MockedResponse>)) {
+  patch();
   const spy: FetchSpyObject = {
     matcher: matcher(matcherConfig),
     response,
