@@ -16,6 +16,7 @@
     "noImplicitThis": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "declaration": true,

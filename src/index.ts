@@ -1,6 +1,13 @@
 import escape from 'escape-string-regexp';
 
-type RequestMatcher = (spy: FetchSpyObject, request: Request) => boolean;
+type RequestMatcher = (spy: FetchSpyObject, request: RequestDetails) => boolean;
+
+type RequestDetails = {
+  url: string;
+  method: string;
+} & {
+    [K in keyof Omit<RequestInit, 'method'>]-?: RequestInit[K] | undefined | null
+  };
 
 type MockedResponse = Response | Error | {
   status?: number;
@@ -11,8 +18,8 @@ type MockedResponse = Response | Error | {
 
 type FetchSpyObject = {
   matcher: RequestMatcher;
-  response?: MockedResponse | ((spy: FetchSpyObject, request: Request) => Promise<MockedResponse>);
-  calls: Request[];
+  response: MockedResponse | ((spy: FetchSpyObject, request: RequestDetails) => Promise<MockedResponse>) | undefined;
+  calls: RequestDetails[];
   once: boolean;
 }
 
@@ -32,8 +39,8 @@ const state = {
  */
 {
   const pureFetch = globalThis.fetch;
-  globalThis.fetch = <T extends Parameters<typeof pureFetch>>(...args: T) => {
-    const request = getRequest(...args);
+  globalThis.fetch = async <T extends Parameters<typeof pureFetch>>(...args: T) => {
+    const request = await getRequestDetails(...args);
     for (const spy of state.spies) {
       if (spy.matcher(spy, request)) {
         spy.calls.push(request);
@@ -56,7 +63,7 @@ export function reset() {
 /**
  * Spy fetch request.
  */
-export function spy(matcherConfig: MatcherConfig, response?: MockedResponse | ((spy: FetchSpyObject, request: Request) => Promise<MockedResponse>)) {
+export function spy(matcherConfig: MatcherConfig, response?: MockedResponse | ((spy: FetchSpyObject, request: RequestDetails) => Promise<MockedResponse>)) {
   const spy: FetchSpyObject = {
     matcher: matcher(matcherConfig),
     response,
@@ -94,28 +101,28 @@ function matcher(config: MatcherConfig) {
  */
 const matchers = {
   compose(...matchers: RequestMatcher[]) {
-    return (spy: FetchSpyObject, request: Request) => {
+    return (spy: FetchSpyObject, request: RequestDetails) => {
       return matchers.every(matcher => matcher(spy, request));
     }
   },
   method(method: string) {
-    return (_: FetchSpyObject, request: Request) => {
+    return (_: FetchSpyObject, request: RequestDetails) => {
       return request.method.toLowerCase() === method.toLowerCase();
     }
   },
   origin(origin: string) {
-    return (_: FetchSpyObject, request: Request) => {
+    return (_: FetchSpyObject, request: RequestDetails) => {
       return new URL(request.url).origin === origin;
     }
   },
   pathname(pathname: string) {
-    return (_: FetchSpyObject, request: Request) => {
+    return (_: FetchSpyObject, request: RequestDetails) => {
       pathname = pathname.replace(/[\*\/]*$/, '') + '*';
       return new RegExp(escape(pathname).replace('\\*', '.*?')).test(new URL(request.url).pathname);
     }
   },
   queryparams(queryparams: Record<string, string>) {
-    return (_: FetchSpyObject, request: Request) => {
+    return (_: FetchSpyObject, request: RequestDetails) => {
       const url = new URL(request.url);
       for (const [key, value] of Object.entries(queryparams)) {
         if (url.searchParams.get(key) !== value) {
@@ -130,14 +137,66 @@ const matchers = {
 /**
  * Create Request instance.
  */
-function getRequest<T extends Parameters<typeof globalThis['fetch']>>(...args: T) {
-  return args[0] instanceof Request ? new Request(args[0]) : new Request(args[0].toString());
+async function getRequestDetails<T extends Parameters<typeof globalThis['fetch']>>(...args: T): Promise<RequestDetails> {
+  if (args[0] instanceof Request) {
+    const arg0 = args[0] as Request;
+    return {
+      url: arg0.url,
+      method: arg0.method,
+      body: await arg0.clone().text(),
+      mode: arg0.mode,
+      cache: arg0.cache,
+      signal: arg0.signal,
+      credentials: arg0.credentials,
+      headers: arg0.headers,
+      referrer: arg0.referrer,
+      referrerPolicy: arg0.referrerPolicy,
+      integrity: arg0.integrity,
+      redirect: arg0.redirect,
+      keepalive: arg0.keepalive,
+      window: null,
+    };
+  }
+  if (typeof args[1] === 'object') {
+    return {
+      url: args[0].toString(),
+      method: args[1].method ?? 'GET',
+      body: args[1].body,
+      mode: args[1].mode,
+      cache: args[1].cache,
+      signal: args[1].signal,
+      credentials: args[1].credentials,
+      headers: args[1].headers,
+      referrer: args[1].referrer,
+      referrerPolicy: args[1].referrerPolicy,
+      integrity: args[1].integrity,
+      redirect: args[1].redirect,
+      keepalive: args[1].keepalive,
+      window: args[1].window,
+    };
+  }
+  return {
+    url: args[0].toString(),
+    method: 'GET',
+    body: null,
+    mode: null,
+    cache: null,
+    signal: null,
+    credentials: null,
+    headers: null,
+    referrer: null,
+    referrerPolicy: null,
+    integrity: null,
+    redirect: null,
+    keepalive: null,
+    window: null,
+  }
 }
 
 /**
  * Create Response instance.
  */
-async function getResponse(spy: FetchSpyObject, request: Request): Promise<Response> {
+async function getResponse(spy: FetchSpyObject, request: RequestDetails): Promise<Response> {
   if (!spy.response) {
     throw new Error('spy.response is undefined');
   }
@@ -153,8 +212,8 @@ async function getResponse(spy: FetchSpyObject, request: Request): Promise<Respo
   const headers = new Headers(response.headers);
   headers.set('content-type', 'application/json');
   return Promise.resolve(new Response(JSON.stringify(response.body), {
-    status: response.status,
-    statusText: response.statusText,
-    headers: headers,
+    status: response.status!,
+    statusText: response.statusText!,
+    headers: headers!,
   }));
 }
