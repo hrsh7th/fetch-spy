@@ -20,7 +20,6 @@ type FetchSpyObject = {
   matcher: RequestMatcher;
   response: MockedResponse | ((spy: FetchSpyObject, request: RequestDetails) => Promise<MockedResponse>) | undefined;
   calls: RequestDetails[];
-  once: boolean;
 }
 
 type MatcherConfig = {
@@ -81,7 +80,6 @@ export function spy(matcherConfig: MatcherConfig, response?: MockedResponse | ((
     matcher: matcher(matcherConfig),
     response,
     calls: [],
-    once: false
   }
   state.spies.push(spy);
   return {
