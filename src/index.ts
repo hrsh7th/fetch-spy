@@ -46,7 +46,7 @@ function patch() {
   if ((pureFetch as any)[FetchSpySymbol]) {
     return;
   }
-  globalThis.fetch = async <T extends Parameters<typeof pureFetch>>(...args: T) => {
+  const patchedFetch = async <T extends Parameters<typeof pureFetch>>(...args: T) => {
     const request = await getRequestDetails(...args);
     for (const spy of state.spies) {
       if (spy.matcher(spy, request)) {
@@ -58,7 +58,17 @@ function patch() {
     }
     return pureFetch.call(globalThis, ...args);
   };
-  (globalThis.fetch as any)[FetchSpySymbol] = pureFetch;
+  Object.defineProperty(globalThis, 'fetch', {
+    value: patchedFetch,
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+  Object.defineProperty(globalThis.fetch, FetchSpySymbol, {
+    value: pureFetch,
+    writable: true,
+    configurable: true,
+  });
 }
 
 /**
@@ -66,8 +76,14 @@ function patch() {
  */
 export function reset() {
   state.spies = [];
-  if ((globalThis.fetch as any)[FetchSpySymbol]) {
-    globalThis.fetch = (globalThis.fetch as any)[FetchSpySymbol];
+  const originalFetch = (globalThis.fetch as any)[FetchSpySymbol];
+  if (originalFetch) {
+    Object.defineProperty(globalThis, 'fetch', {
+      value: originalFetch,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
   }
 }
 
